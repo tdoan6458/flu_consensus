@@ -119,11 +119,67 @@ keep
 ' processed_headers.txt InfluenzaB_all_ref.fasta > InfluenzaB_filtered_ref.fasta
 ```
 
-## Align samples to reference
+## Align samples to reference database
 
-1. Align sample reads to assigned, filtered reference database.
-2. Compute max meandepth by each segment.
-3. Build individual reference fasta file for each sample.
-4. Align each sample to its own new reference.
-5. Assess coverage and depth
-6. Generate consensus sequence
+### 1. Align sample reads to assigned, filtered reference database
+```
+bwa mem -t 12 \
+    InfluenzaB_filtered_ref.fasta \
+    ${library}_1.fastq.gz \
+    ${library}_2.fastq.gz | \
+    samtools view -bS -F 4 - | \
+    samtools sort -o /bwa_output/${library}.sorted.bam -
+
+samtools index /bwa_output/${library}.sorted.bam
+```
+### 2. Compute max meandepth by each segment
+```
+samtools coverage \
+    -o /coverage/${library}_coverage.txt \
+    /bwa_output/${library}.sorted.bam
+
+awk 'FNR==NR {seg[$1]=$2; next} {print $0, seg[$1]}' acc2segment.tsv /coverage/${library}_coverage.txt > ${library}_coverage_with_segment.txt
+
+sed -i '1s/$/	segment/' coverage/${library}_coverage_with_segment.txt
+```
+### 3. Build individual reference fasta file for each sample
+```
+# 1) Get the IDs from coverage file (skip header, take first column)
+tail -n +2 coverage/${library}_highest_meandepth_by_segment.txt | awk '{print $1}' > /coverage/${library}_best_aligned_ids.txt
+
+# 2) Extract matching sequences from FASTA
+seqkit grep -f /coverage/${library}_best_aligned_ids.txt InfluenzaB_filtered_ref.fasta > /references/${library}_ref.fasta
+```
+### 4. Align each sample to its own new reference and generate consensus
+```
+bwa index /references/${library}_ref.fasta
+bwa mem -t 12 \
+    /references/${library}_ref.fasta \
+    ${library}_1.fastq.gz \
+    ${library}_2.fastq.gz | \
+    samtools view -bS -F 4 - | \
+    samtools sort -o /bwa_output2/${library}.sorted.bam -
+
+samtools index /bwa_output2/${library}.sorted.bam
+```
+### 6. Assess coverage and depth
+```
+samtools coverage \
+    -o coverage2/${library}_coverage.txt \
+    bwa_output2/${library}.sorted.bam
+
+awk 'FNR==NR {seg[$1]=$2; next} {print $0, seg[$1]}' acc2segment.tsv coverage2/${library}_coverage.txt > coverage2/${library}_coverage_with_segment.txt
+
+sed -i '1s/$/	segment/' coverage2/${library}_coverage_with_segment.txt
+
+samtools depth \
+    -a \
+    -o coverage2/${library}_depth.txt \
+    bwa_output2/${library}.sorted.bam
+
+awk 'FNR==NR {seg[$1]=$2; next} {print $0, seg[$1]}' acc2segment.tsv coverage2/${library}_depth.txt > coverage2/${library}_depth_with_segment.txt
+```
+### 7. Generate consensus sequence
+```
+samtools consensus /bwa_output2/${library}.sorted.bam > /consensus/${library}_consensus.fasta
+```
