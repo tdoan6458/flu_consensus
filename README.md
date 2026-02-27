@@ -1,4 +1,16 @@
-# flu_consensus
+# Influenza A/B Alignment Consensus
+Generate consensus sequence for Influenza genome sequence using short reads generated from hybrid-capture sequencing assay.
+
+### Before we start:
+Install packages in conda or mamba environments:
+```
+conda create -n flu
+conda activate flu
+conda install bioconda::bwa-mem2
+conda install bioconda::samtools
+```
+For more information on creating Mamba/Conda environments on Quest and installing packages visit [https://rcdsdocs.it.northwestern.edu/tutorials/software-management/conda-mamba-quest/mamba-conda-quest.html](https://rcdsdocs.it.northwestern.edu/tutorials/software-management/conda-mamba-quest/mamba-conda-quest.html)
+
 
 ## Building Reference Database
 
@@ -105,7 +117,7 @@ END{
   print "Unknown segment (see unprocessed_headers.txt): " unknown > "/dev/stderr";
   print "Too short (see too_short_headers.txt): " tooshort > "/dev/stderr";
 }
-' Influenza_all_ref.fasta > acc2segment.tsv
+' <Influenza_all_ref.fasta> > acc2segment.tsv
 ```
 In this example, I downloaded all Influenza B sequences from [NCBI Genbank](https://www.ncbi.nlm.nih.gov/nuccore/?term=txid11520[organism:exp]%20AND%20biomol_genomic[prop]). Sequences that are too short (usually are partial cds) are filtered out and printed to [too_short_headers.txt]. Sequences that are assigned with segment# are printed to [processed_headers.txt]. The [acc2segment.tsv] have two columns, first column being the accessionID and second column being segment# (from 1 to 8) that the each sequence are assigned to.
 > \[!NOTE]
