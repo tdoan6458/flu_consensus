@@ -1,4 +1,4 @@
-# Influenza A/B Genome Alignment
+# Influenza A/B Genome Alignment and Generating Consensus Sequence
 Generate consensus sequence for Influenza genome sequence using short reads generated from hybrid-capture sequencing assay. Influenza genome has 8 segments, each segment encodes for 1 to 2 proteins. This workflow consist of three main steps: 1) First alignment to the reference database, 2) Identify reference sequences with best alignment to sample reads, and 3) Second alignment to "best" reference sequences and generate consensus sequences.
 
 ### Before we start:
