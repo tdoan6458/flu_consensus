@@ -1,5 +1,5 @@
 # Influenza A/B Alignment Consensus
-Generate consensus sequence for Influenza genome sequence using short reads generated from hybrid-capture sequencing assay.
+Generate consensus sequence for Influenza genome sequence using short reads generated from hybrid-capture sequencing assay. Influenza genome has 8 segments, each segment encodes for 1 to 2 proteins. This workflow consist of three main steps: 1) First alignment to the reference database, 2) Identify reference sequences with best alignment to sample reads, and 3) Second alignment to "best" reference sequences and generate consensus sequences.
 
 ### Before we start:
 Install packages in conda or mamba environments:
@@ -119,10 +119,11 @@ END{
 }
 ' Influenza_all_ref.fasta > acc2segment.tsv
 ```
-In this example, I downloaded all Influenza B sequences from [NCBI Genbank](https://www.ncbi.nlm.nih.gov/nuccore/?term=txid11520[organism:exp]%20AND%20biomol_genomic[prop]). Sequences that are assigned with segment# are printed to [processed_headers.txt](https://github.com/tdoan6458/flu_consensus/blob/main/processed_headers.txt). Sequences that are too short (usually are partial cds) are filtered out and printed to [too_short_headers.txt](https://github.com/tdoan6458/flu_consensus/blob/main/too_short_headers.txt). Sequences that can't be assigned to any segments are also filtered out and printed to [unprocessed_headers.txt](https://github.com/tdoan6458/flu_consensus/blob/main/unprocessed_headers.txt). The resulting [acc2segment.tsv](https://github.com/tdoan6458/flu_consensus/blob/main/acc2segment.tsv) have two columns, first column being the accessionID and second column being segment# (from 1 to 8) that the each sequence are assigned to.
+For example, I downloaded all Influenza B sequences from [NCBI Genbank](https://www.ncbi.nlm.nih.gov/nuccore/?term=txid11520[organism:exp]%20AND%20biomol_genomic[prop]). Sequences that are assigned with segment# are printed to [processed_headers.txt](https://github.com/tdoan6458/flu_consensus/blob/main/processed_headers.txt). Sequences that are too short (usually are partial cds) are filtered out and printed to [too_short_headers.txt](https://github.com/tdoan6458/flu_consensus/blob/main/too_short_headers.txt). Sequences that can't be assigned to any segments are also filtered out and printed to [unprocessed_headers.txt](https://github.com/tdoan6458/flu_consensus/blob/main/unprocessed_headers.txt). The resulting [acc2segment.tsv](https://github.com/tdoan6458/flu_consensus/blob/main/acc2segment.tsv) have two columns, first column being the accessionID and second column being segment# (from 1 to 8) that the each sequence are assigned to.
 > \[!NOTE]
 >
 > Here I was lenient on setting the minimum length requirements for each segments. Change them if you need to. Check your `unprocessed_headers.txt` and `acc2segment.tsv` to see if you should add or remove keywords for assigning sequences to their segments. You might want to blast the sequence to NCBI to check if there are any mismatches.
+
 Now we generate a filtered reference database that excludes sequences in `too_short_headers.txt` and `unprocessed_headers.txt`
 ```
 awk '
@@ -139,10 +140,12 @@ keep
 
 ## Align samples to reference database
 
-### 1. Align sample reads to assigned, filtered reference database
+### 1. Align sample reads to filtered reference database
+This will output `library.sorted.bam` and `library.sorted.bam.bai` files. Here I ran this in an array batch script to process mutliple samples.
 ```
+bwa index Influenza_filtered_ref.fasta
 bwa mem -t 12 \
-    InfluenzaB_filtered_ref.fasta \
+    Influenza_filtered_ref.fasta \
     ${library}_1.fastq.gz \
     ${library}_2.fastq.gz | \
     samtools view -bS -F 4 - | \
@@ -151,6 +154,7 @@ bwa mem -t 12 \
 samtools index /bwa_output/${library}.sorted.bam
 ```
 ### 2. Compute max meandepth by each segment
+Run `samtools coverage` on the alignment bam files will give key metrics like coverage, mean depth, covered base, etc. We want to identify a reference sequence per each segment that the sample reads were best aligned to. Here I used `meandepth` as a quantitative proxy to assess how well the sample reads were aligned to the reference sequences, but you should also look at  `coverage` values.  
 ```
 samtools coverage \
     -o /coverage/${library}_coverage.txt \
@@ -160,15 +164,17 @@ awk 'FNR==NR {seg[$1]=$2; next} {print $0, seg[$1]}' acc2segment.tsv /coverage/$
 
 sed -i '1s/$/	segment/' coverage/${library}_coverage_with_segment.txt
 ```
-### 3. Build individual reference fasta file for each sample
+### 3. Build individual reference sequences for each sample
+After identify sequence per each segment that has highest `meandepth`, extract the sequence to generate an individual reference fasta file that has 8 sequences for 8 segments of Influenza genome. Each sample will have its own reference sequences.
 ```
-# 1) Get the IDs from coverage file (skip header, take first column)
+#Get the IDs from coverage file
 tail -n +2 coverage/${library}_highest_meandepth_by_segment.txt | awk '{print $1}' > /coverage/${library}_best_aligned_ids.txt
 
-# 2) Extract matching sequences from FASTA
+#Extract matching sequences from FASTA
 seqkit grep -f /coverage/${library}_best_aligned_ids.txt InfluenzaB_filtered_ref.fasta > /references/${library}_ref.fasta
 ```
-### 4. Align each sample to its own new reference and generate consensus
+### 4. Align each sample to its own individual reference sequences
+Second alignment using `bwa` to align each sample to its own reference sequences.
 ```
 bwa index /references/${library}_ref.fasta
 bwa mem -t 12 \
@@ -181,6 +187,7 @@ bwa mem -t 12 \
 samtools index /bwa_output2/${library}.sorted.bam
 ```
 ### 6. Assess coverage and depth
+Besides looking at coverage, running `samtools depth` will give you depth at each position. You can use this to generate read depth plots.
 ```
 samtools coverage \
     -o coverage2/${library}_coverage.txt \
@@ -198,6 +205,46 @@ samtools depth \
 awk 'FNR==NR {seg[$1]=$2; next} {print $0, seg[$1]}' acc2segment.tsv coverage2/${library}_depth.txt > coverage2/${library}_depth_with_segment.txt
 ```
 ### 7. Generate consensus sequence
+Using `samtools consensus` will generate consensus sequence for each segment. This will result in a `consensus.fasta` file of 8 sequences, one for each segment.
 ```
 samtools consensus /bwa_output2/${library}.sorted.bam > /consensus/${library}_consensus.fasta
+```
+### 8. Blast consensus sequence for genotyping
+You can use [NCBI Blast](https://blast.ncbi.nlm.nih.gov/Blast.cgi) to blast the consensus sequences for genotyping. It might be helpful to see if your top hit result is the same as the individual reference sequences.
+
+### 9. Plot read depth (Optional)
+This will generate a figure of 8 plots for each segment, showing read depth at each position. You can do this in R
+```
+library(ggplot2)
+library(dplyr)
+
+# Load the data from the provided depth file
+depth_data <- read.table("library_depth_with_segment.txt", header = FALSE, col.names = c('ID','Position', 'Reads', 'Segment'))
+
+# Create the plot
+plot <- ggplot(depth_data, aes(x = Position, y = Reads)) +
+  geom_bar(stat = 'identity', width = 1) + 
+  facet_wrap(~ Segment, ncol = 2, scales = 'free') + 
+  theme_minimal() + 
+  labs(title = 'Reads per Position for Each Segment, SampleID', x = 'Position', y = 'Reads') +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+### 9. Assess percent reads recruitment (Optional)
+You can run `samtools flagstat` to see the percentage of reads aligned to the reference sequence. This might help to assess the alignment besides coverage and depth. If there are samples with low percent reads recruited to the Influenza reference sequence, you could try running `kraken2` to align them with standard database to see what other organisms are in the sample. 
+```
+bwa index references/${library}_ref.fasta
+bwa mem -t 12 \
+    references/${library}_ref.fasta \
+    fastq/${library}_1.fastq.gz \
+    fastq/${library}_2.fastq.gz | \
+    samtools sort -o percent_aligned/${library}.sorted.bam -
+
+samtools index percent_aligned/${library}.sorted.bam
+
+samtools flagstat percent_aligned/${library}.sorted.bam > ${library}_stat
+
+samtools flagstat percent_aligned/${library}.sorted.bam \
+| awk -v s="$library" '/mapped \(/ {gsub(/[()%]/,"",$5); print s "\t" $5}' \
+>> percent_mapped.txt
 ```
