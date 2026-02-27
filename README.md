@@ -123,8 +123,8 @@ In this example, I downloaded all Influenza B sequences from [NCBI Genbank](http
 > \[!NOTE]
 >
 > Here I was lenient on setting the minimum length requirements for each segments. Change them if you need to. Check your `unprocessed_headers.txt` and `acc2segment.tsv` to see if you should add or remove keywords for assigning sequences to their segments. You might want to blast the sequence to NCBI to check if there are any mismatches.
-```
 Now we generate a filtered reference database that excludes sequences in `too_short_headers.txt` and `unprocessed_headers.txt`
+```
 awk '
 NR==FNR {
     ids[$0];          # store full header line (including >)
