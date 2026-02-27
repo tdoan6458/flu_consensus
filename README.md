@@ -117,13 +117,14 @@ END{
   print "Unknown segment (see unprocessed_headers.txt): " unknown > "/dev/stderr";
   print "Too short (see too_short_headers.txt): " tooshort > "/dev/stderr";
 }
-' <Influenza_all_ref.fasta> > acc2segment.tsv
+' Influenza_all_ref.fasta > acc2segment.tsv
 ```
-In this example, I downloaded all Influenza B sequences from [NCBI Genbank](https://www.ncbi.nlm.nih.gov/nuccore/?term=txid11520[organism:exp]%20AND%20biomol_genomic[prop]). Sequences that are assigned with segment# are printed to [processed_headers.txt](https://github.com/tdoan6458/flu_consensus/blob/main/processed_headers.txt). Sequences that are too short (usually are partial cds) are filtered out and printed to [too_short_headers.txt](https://github.com/tdoan6458/flu_consensus/blob/main/too_short_headers.txt). Sequences that can't be assigned to any segments are also filtered out and printed to [unprocessed_headers.txt](https://github.com/tdoan6458/flu_consensus/blob/main/unprocessed_headers.txt). The resulting [acc2segment.tsv] have two columns, first column being the accessionID and second column being segment# (from 1 to 8) that the each sequence are assigned to. Sequences that can
+In this example, I downloaded all Influenza B sequences from [NCBI Genbank](https://www.ncbi.nlm.nih.gov/nuccore/?term=txid11520[organism:exp]%20AND%20biomol_genomic[prop]). Sequences that are assigned with segment# are printed to [processed_headers.txt](https://github.com/tdoan6458/flu_consensus/blob/main/processed_headers.txt). Sequences that are too short (usually are partial cds) are filtered out and printed to [too_short_headers.txt](https://github.com/tdoan6458/flu_consensus/blob/main/too_short_headers.txt). Sequences that can't be assigned to any segments are also filtered out and printed to [unprocessed_headers.txt](https://github.com/tdoan6458/flu_consensus/blob/main/unprocessed_headers.txt). The resulting [acc2segment.tsv](https://github.com/tdoan6458/flu_consensus/blob/main/acc2segment.tsv) have two columns, first column being the accessionID and second column being segment# (from 1 to 8) that the each sequence are assigned to.
 > \[!NOTE]
 >
 > Here I was lenient on setting the minimum length requirements for each segments. Change them if you need to. Check your `unprocessed_headers.txt` and `acc2segment.tsv` to see if you should add or remove keywords for assigning sequences to their segments. You might want to blast the sequence to NCBI to check if there are any mismatches.
 ```
+Now we generate a filtered reference database that excludes sequences in `too_short_headers.txt` and `unprocessed_headers.txt`
 awk '
 NR==FNR {
     ids[$0];          # store full header line (including >)
@@ -133,7 +134,7 @@ NR==FNR {
     keep = ($0 in ids)   # check if header exactly matches
 }
 keep
-' processed_headers.txt InfluenzaB_all_ref.fasta > InfluenzaB_filtered_ref.fasta
+' processed_headers.txt Influenza_all_ref.fasta > Influenza_filtered_ref.fasta
 ```
 
 ## Align samples to reference database
