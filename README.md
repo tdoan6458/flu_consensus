@@ -105,8 +105,13 @@ END{
   print "Unknown segment (see unprocessed_headers.txt): " unknown > "/dev/stderr";
   print "Too short (see too_short_headers.txt): " tooshort > "/dev/stderr";
 }
-' InfluenzaB_all_ref.fasta > acc2segment.tsv
-
+' Influenza_all_ref.fasta > acc2segment.tsv
+```
+You will end up with acc2segment.tsv that does the
+> \[!NOTE]
+>
+> Here I was lenient on setting the minimum length requirements for each segments. Change them if you need to. Check the unprocessed_headers.txt and acc2segment.tsv to see if you could add or remove keywords for assigning sequences to their segments. You might want to blast the sequence to NCBI to check if there are any mismatches.
+```
 awk '
 NR==FNR {
     ids[$0];          # store full header line (including >)
