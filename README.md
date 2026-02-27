@@ -3,9 +3,9 @@
 ## Building Reference Database
 
 1. Download latest Genbank NCBI Influenza virus sequences.
-3. Assign segment# to each sequence using keyword search.
-4. Filtering by minimum length requirement for each segment.
-5. Filter out sequences that can’t be assigned segment.
+2. Filtering by minimum length requirement for each segment.
+3. Filter out sequences that can’t be assigned segment.
+4. Assign segment# to each sequence using keyword search.
 
 ```
 awk '
@@ -107,7 +107,7 @@ END{
 }
 ' Influenza_all_ref.fasta > acc2segment.tsv
 ```
-You will end up with acc2segment.tsv that does the
+In this example, I downloaded all Influenza B sequences from [NCBI Genbank](https://www.ncbi.nlm.nih.gov/nuccore/?term=txid11520[organism:exp]%20AND%20biomol_genomic[prop]). Sequences that are too short (usually are partial cds) are filtered out and printed to [too_short_headers.txt]. Sequences that are assigned with segment# are printed to [processed_headers.txt]. The [acc2segment.tsv] have two columns, first column being the accessionID and second column being segment# (from 1 to 8) that the each sequence are assigned to.
 > \[!NOTE]
 >
 > Here I was lenient on setting the minimum length requirements for each segments. Change them if you need to. Check the unprocessed_headers.txt and acc2segment.tsv to see if you could add or remove keywords for assigning sequences to their segments. You might want to blast the sequence to NCBI to check if there are any mismatches.
